@@ -1,19 +1,18 @@
 mod error;
 
-use crate::config;
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use std::time::Duration;
 
+use crate::config;
 pub use error::{Error, Result};
 
-pub type Db = Pool<Postgres>;
+pub type SqlDb = Pool<Postgres>;
 
-pub async fn new_db_pool() -> Result<Db> {
-	match PgPoolOptions::new()
-		.max_connections(1)
+pub async fn new_sql_pool() -> Result<SqlDb> {
+	PgPoolOptions::new()
+		.max_connections(20)
+		.acquire_timeout(Duration::from_millis(200))
 		.connect(&config().DB_URL)
 		.await
-	{
-		Ok(pool) => Ok(pool),
-		Err(ex) => Err(Error::FailedToCreatePool(ex.to_string())),
-	}
+		.map_err(|e| Error::FailedToCreatePool(e.to_string()))
 }
