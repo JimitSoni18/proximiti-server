@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+message LoginPayload {
+  string username = 1;
+  string pwd = 2;
+}
+
+message LoginSuccess {
+  string token = 1;
+}
+
+enum LoginError {
+  INVALID_CREDENTIALS = 0;
+  ACCOUNT_NOT_FOUND = 1;
+  ACCOUNT_DISABLED = 2;
+}
+
+message LoginResult {
+  oneof result {
+    LoginSuccess success = 1;
+    LoginError error = 2;
+  }
+}

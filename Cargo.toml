@@ -1,5 +1,5 @@
 [package]
-name = "axum_server"
+name = "proximiti-server"
 version = "0.1.0"
 edition = "2021"
 
@@ -23,7 +23,12 @@ tower-http = { version = "0.5.0", features = ["fs"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 uuid = "1.6.1"
+prost = "0.12.3"
+bytes = "1.5.0"
 
 [dev-dependencies]
 serial_test = "3.0.0"
 anyhow = "1.0.79"
+
+[build-dependencies]
+prost-build = "0.12.3"
