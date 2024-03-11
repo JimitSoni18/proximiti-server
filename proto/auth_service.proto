@@ -1,8 +1,15 @@
 syntax = "proto3";
 
-message LoginPayload {
+package auth; // More concise package name
+
+service AuthService { // More descriptive service name
+  rpc Login(LoginRequest) returns (LoginResponse) {}
+}
+
+// Consolidated message for login request
+message LoginRequest {
   string username = 1;
-  string pwd = 2;
+  string password = 2; // Clearer field name
 }
 
 message LoginSuccess {
@@ -15,7 +22,8 @@ enum LoginError {
   ACCOUNT_DISABLED = 2;
 }
 
-message LoginResult {
+// Renamed for clarity
+message LoginResponse {
   oneof result {
     LoginSuccess success = 1;
     LoginError error = 2;

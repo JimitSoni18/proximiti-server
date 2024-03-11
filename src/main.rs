@@ -1,26 +1,14 @@
-mod config;
-mod crypt;
-mod ctx;
-mod model;
-mod web;
+use tonic::{transport::Server, Request, Response};
 
-mod _dev_utils;
+mod auth {
+    use tonic::include_proto;
 
-use axum::Router;
-use tower_http::services::ServeDir;
+	include_proto!("auth_service");
+}
 
-pub use config::config;
+#[derive(Default)]
+pub struct AuthService;
 
 #[tokio::main]
 async fn main() {
-	let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
-		.await
-		.unwrap();
-
-	let app =
-		Router::new().fallback_service(ServeDir::new(&config().STATIC_DIR));
-
-	axum::serve(listener, app.into_make_service())
-		.await
-		.unwrap();
 }
