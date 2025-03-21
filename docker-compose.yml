@@ -1,0 +1,12 @@
+version: "3"
+services:
+  garage:
+    image: docker.io/dxflrs/garage:v1.0.0
+    network_mode: "none"
+    restart: unless-stopped
+    volumes:
+      - /etc/garage.toml:/etc/garage.toml
+      - /var/lib/garage/meta:/var/lib/garage/meta
+      - /var/lib/garage/data:/var/lib/garage/data
+    ports:
+      - 3901:3901

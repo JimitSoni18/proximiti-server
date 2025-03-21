@@ -1,0 +1,5 @@
+lowercaseKeywords: false
+connections:
+  - alias: proximiti
+    driver: postgresql
+    dataSourceName: postgres://postgres:welcome@localhost:5432/proximiti_server
