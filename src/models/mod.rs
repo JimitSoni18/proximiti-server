@@ -1,20 +1,20 @@
 pub mod cache;
-pub mod relational;
+pub mod sql;
 pub mod s3;
 
 pub struct Model {
 	// TODO: add s3, cache and search
-	sql: relational::Db,
+	sql: sql::Db,
 }
 
 impl Model {
 	pub async fn new() -> Self {
 		Self {
-			sql: relational::get_instance().await,
+			sql: sql::get_instance().await,
 		}
 	}
 
-	pub fn db(&self) -> &relational::Db {
-		&self.sql
+	pub fn db(&self) -> sql::Db {
+		self.sql.clone()
 	}
 }

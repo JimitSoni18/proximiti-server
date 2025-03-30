@@ -13,6 +13,8 @@ use models::Model;
 mod crypt;
 mod services;
 
+mod types;
+
 // use external
 use axum::Router;
 

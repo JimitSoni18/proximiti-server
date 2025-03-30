@@ -11,6 +11,7 @@ pub mod authenticated_routes;
 pub async fn router() -> Router {
 	Router::new()
 		.nest("/auth", auth::router())
+		.merge(authenticated_routes::routes())
 		.with_state(Arc::new(AppState {
 			model: Model::new().await,
 		}))

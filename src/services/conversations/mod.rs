@@ -1,25 +1,45 @@
-use std::error::Error;
+use std::{convert::Infallible, sync::Arc};
 
-use crate::models::relational;
+use axum::extract::FromRequest;
 
-pub struct ConversationService;
+use crate::{models::sql, AppState};
 
-#[derive(sqlx::Type)]
+pub mod error;
+
+pub struct ConversationService(sql::Db);
+
+impl FromRequest<Arc<AppState>> for ConversationService {
+    #[doc = " If the extractor fails it\'ll use this \"rejection\" type. A rejection is"]
+    #[doc = " a kind of error that can be converted into a response."]
+    type Rejection = Infallible;
+
+    async fn from_request(
+        _: axum::extract::Request,
+        state: &Arc<AppState>,
+    ) -> Result<Self, Self::Rejection> {
+        Ok(Self(state.model.db()))
+    }
+}
+
+#[derive(sqlx::Type, serde::Serialize)]
 struct OtherUserInfo {
 	id: i64,
 	username: String,
-    profile_picture_url: Option<String>,
+    #[serde(rename = "camelCase", skip_serializing_if = "Option::is_none")]
+	profile_picture_url: Option<String>,
 }
 
-struct ConversationList {
+#[derive(serde::Serialize)]
+pub struct Conversation {
 	id: i64,
+    #[serde(rename = "camelCase", skip_serializing_if = "Option::is_none")]
 	other_user: Option<OtherUserInfo>,
 }
 
 impl ConversationService {
-	async fn list(db: &relational::Db, user_id: i64) -> Result<Vec<ConversationList>, Box<dyn Error>> {
-		let _ = sqlx::query_as!(
-            ConversationList,
+	pub async fn list(&self, user_id: i64) -> error::Result<Vec<Conversation>> {
+		sqlx::query_as!(
+			Conversation,
 			r#"
 SELECT
 	uc.id,
@@ -36,7 +56,9 @@ FROM user_conversations uc
         END
 "#,
 			user_id,
-		).fetch_all(db).await;
-		todo!();
+		)
+		.fetch_all(&self.0)
+		.await
+		.map_err(|_| error::Error::Internal)
 	}
 }

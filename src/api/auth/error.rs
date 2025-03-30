@@ -1,3 +1,4 @@
+use crate::types::response::ErrResponse;
 use axum::{http::StatusCode, response::IntoResponse};
 
 pub type Result<T> = core::result::Result<T, Error>;
@@ -26,31 +27,28 @@ impl IntoResponse for Error {
 		(match self {
 			Self::PasswordIncorrect => (
 				StatusCode::UNAUTHORIZED,
-				axum::Json(serde_json::json!({
-					"status": "error",
-					"message": "Incorrect credentials. Please try again."
-				})),
+				axum::Json(ErrResponse::new(
+					"Incorrect credentials. Please try again.",
+				)),
 			),
 			Self::Internal => (
 				StatusCode::INTERNAL_SERVER_ERROR,
-				axum::Json(serde_json::json!({
-					"status": "error",
-					"message": "There was an issue processing your request. Please try again later."
-				})),
+				axum::Json(ErrResponse::new(
+					"There was an issue processing your request. Please try again later."
+				)),
 			),
 			Self::SignUpUsernameTaken => (
 				StatusCode::CONFLICT,
-				axum::Json(serde_json::json!( {
-					"status": "error",
-					"message": "This username is already taken."
-				})),
+				axum::Json(ErrResponse
+                    ::new(
+					"This username is already taken."
+				)),
 			),
 			Self::BadInput => (
 				StatusCode::BAD_REQUEST,
-				axum::Json(serde_json::json!({
-					"status": "error",
-					"message": "Username / Password should not be empty.",
-				})),
+				axum::Json(ErrResponse::new(
+					"Username / Password should not be empty.",
+				)),
 			),
 		})
 		.into_response()

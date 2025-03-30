@@ -8,6 +8,7 @@ CREATE TABLE users (
 	username VARCHAR(128) UNIQUE NOT NULL,
 	password VARCHAR(128) NOT NULL,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+	online BOOLEAN NOT NULL DEFAULT FALSE,
 	last_seen TIMESTAMP NOT NULL DEFAULT NOW(),
 	is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
 	profile_picture_url VARCHAR(512),
@@ -72,6 +73,8 @@ BEFORE INSERT ON user_conversations
 FOR EACH ROW
 EXECUTE FUNCTION fn_user_conversations_prevent_null_insert();
 
+-- TODO: poll in messages
+-- TODO: starred messages
 CREATE TABLE user_messages (
 	id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 	-- TODO: check - is there a way to constraint sender id,
