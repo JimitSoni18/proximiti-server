@@ -1,13 +1,13 @@
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use crate::config::CONFIG;
 
-const DB_URL: &str = "postgres://postgres:welcome@localhost:5432/proximiti";
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
 pub type Db = Pool<Postgres>;
 
 pub async fn get_instance() -> Db {
 	PgPoolOptions::new()
 		.max_connections(5)
-		.connect(DB_URL)
+		.connect(&CONFIG.db_url)
 		.await
 		.unwrap()
 }

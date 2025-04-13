@@ -45,9 +45,8 @@ fn get_mac(token_str: &str) -> error::Result<BlakeMac> {
 	Ok(mac)
 }
 
-#[tracing::instrument(skip_all)]
 pub fn create_token(user_id: i64) -> error::Result<String> {
-	let claims = STANDARD.encode(
+	let mut claims = STANDARD.encode(
 		serde_json::to_string(&Claims {
 			exp: OffsetDateTime::now_utc()
 				.saturating_add(Duration::seconds(CONFIG.token_duration_sec.into())),
@@ -57,7 +56,9 @@ pub fn create_token(user_id: i64) -> error::Result<String> {
 	);
 	let mac = get_mac(&claims)?;
 	let sign = STANDARD.encode(mac.finalize().into_bytes());
-	Ok(format!("{claims}.{sign}"))
+    claims.push('.');
+    claims += &sign;
+	Ok(claims)
 }
 
 pub fn verify_token(token: &str) -> error::Result<i64> {
@@ -66,13 +67,22 @@ pub fn verify_token(token: &str) -> error::Result<i64> {
 		.ok_or(error::Error::VerificationFailed)?;
 
 	let mac = get_mac(claims)?;
-	mac.verify_slice(sign.as_bytes())?;
 
-	let token = serde_json::from_str::<Claims>(claims)?;
+	mac.verify_slice(
+		&STANDARD
+			.decode(sign)
+			.map_err(|_| error::Error::VerificationFailed)?,
+	)?;
 
-	if token.exp >= OffsetDateTime::now_utc() {
+	let claims = serde_json::from_slice::<Claims>(
+		&STANDARD
+			.decode(claims)
+			.map_err(|_| error::Error::VerificationFailed)?,
+	)?;
+
+	if claims.exp <= OffsetDateTime::now_utc() {
 		return Err(error::Error::TokenExpired);
 	}
 
-	Ok(token.user_id)
+	Ok(claims.user_id)
 }

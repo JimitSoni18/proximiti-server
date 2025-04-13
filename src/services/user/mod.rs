@@ -199,7 +199,7 @@ SELECT
 FROM users u
 JOIN user_requests r
 ON u.id = r.receiver_id
-WHERE username LIKE $1
+WHERE u.username LIKE $1
 AND NOT EXISTS (
 	SELECT
 		1

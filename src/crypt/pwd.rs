@@ -6,7 +6,6 @@ use argon2::{
 	password_hash::{rand_core::OsRng, PasswordHasher, PasswordVerifier, SaltString},
 	Argon2, PasswordHash,
 };
-use tracing::debug;
 
 pub static ARGON2_INSTANCE: LazyLock<Argon2> = LazyLock::new(Argon2::default);
 
@@ -38,10 +37,7 @@ impl From<argon2::password_hash::Error> for Error {
 		match value {
 			argon2::password_hash::Error::Password => Self::InvalidPassword,
 			argon2::password_hash::Error::B64Encoding(_) => Self::Other,
-			why => {
-				debug!(%why, "password hashing failed");
-				Self::Other
-			}
+			why => Self::Other,
 		}
 	}
 }

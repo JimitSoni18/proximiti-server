@@ -14,7 +14,9 @@ pub async fn validate(
 	mut req: Request,
 	next: Next,
 ) -> Result<Response, StatusCode> {
-	let user_id = verify_token(token.token()).map_err(|_| StatusCode::UNAUTHORIZED)?;
+    let token = token.token();
+	let user_id = verify_token(token).map_err(|_| StatusCode::UNAUTHORIZED);
+    let user_id = user_id?;
 	req.extensions_mut().insert(UserId(user_id));
 	Ok(next.run(req).await)
 }

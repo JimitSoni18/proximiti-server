@@ -9,30 +9,28 @@ pub mod error;
 pub struct ConversationService(sql::Db);
 
 impl FromRequest<Arc<AppState>> for ConversationService {
-    #[doc = " If the extractor fails it\'ll use this \"rejection\" type. A rejection is"]
-    #[doc = " a kind of error that can be converted into a response."]
-    type Rejection = Infallible;
+	type Rejection = Infallible;
 
-    async fn from_request(
-        _: axum::extract::Request,
-        state: &Arc<AppState>,
-    ) -> Result<Self, Self::Rejection> {
-        Ok(Self(state.model.db()))
-    }
+	async fn from_request(
+		_: axum::extract::Request,
+		state: &Arc<AppState>,
+	) -> Result<Self, Self::Rejection> {
+		Ok(Self(state.model.db()))
+	}
 }
 
 #[derive(sqlx::Type, serde::Serialize)]
 struct OtherUserInfo {
 	id: i64,
 	username: String,
-    #[serde(rename = "camelCase", skip_serializing_if = "Option::is_none")]
+	#[serde(rename = "camelCase", skip_serializing_if = "Option::is_none")]
 	profile_picture_url: Option<String>,
 }
 
 #[derive(serde::Serialize)]
 pub struct Conversation {
 	id: i64,
-    #[serde(rename = "camelCase", skip_serializing_if = "Option::is_none")]
+	#[serde(rename = "camelCase", skip_serializing_if = "Option::is_none")]
 	other_user: Option<OtherUserInfo>,
 }
 
@@ -43,17 +41,17 @@ impl ConversationService {
 			r#"
 SELECT
 	uc.id,
-    (CASE
+	(CASE
 		WHEN user1_id = $1 THEN user2_id
 		ELSE user1_id
 	END,
-    u.username, u.profile_picture_url) AS "other_user: OtherUserInfo"
+	u.username, u.profile_picture_url) AS "other_user: OtherUserInfo"
 FROM user_conversations uc
-    LEFT JOIN users u
-        ON u.id = CASE
-            WHEN user1_id = $1 THEN user2_id
-            ELSE user1_id
-        END
+LEFT JOIN users u
+ON u.id = CASE
+	WHEN user1_id = $1 THEN user2_id
+	ELSE user1_id
+END
 "#,
 			user_id,
 		)
