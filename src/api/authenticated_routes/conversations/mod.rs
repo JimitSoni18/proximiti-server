@@ -4,6 +4,7 @@ use std::sync::Arc;
 // crates
 use axum::{routing::get, Extension, Json, Router};
 use proximiti_server::utils::extensions::UserId;
+use tracing::instrument;
 
 // internal
 use crate::{
@@ -19,6 +20,7 @@ pub fn routes() -> Router<Arc<AppState>> {
 	Router::new().route("/list", get(list))
 }
 
+#[instrument(skip(conv_service))]
 async fn list(
 	Extension(UserId(user_id)): Extension<UserId>,
 	conv_service: ConversationService,

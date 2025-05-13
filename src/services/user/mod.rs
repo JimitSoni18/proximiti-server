@@ -2,6 +2,7 @@ use std::{convert::Infallible, sync::Arc};
 
 use axum::{extract::FromRequestParts, http::request::Parts};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 pub mod error;
 
@@ -29,7 +30,6 @@ pub struct ListUser {
 	#[serde(rename = "camelCase", skip_serializing_if = "Option::is_none")]
 	profile_picture_url: Option<String>,
 	id: i64,
-	rejected: bool,
 }
 
 #[derive(Serialize)]
@@ -185,6 +185,7 @@ AND NOT EXISTS (
 	}
 
 	#[inline]
+	#[instrument(skip(self))]
 	pub async fn search_by_username(
 		&self,
 		current_user_id: i64,
@@ -195,24 +196,29 @@ AND NOT EXISTS (
 			ListUser,
 			r#"
 SELECT
-	u.username, u.profile_picture_url, u.id, r.rejected
-FROM users u
-JOIN user_requests r
-ON u.id = r.receiver_id
-WHERE u.username LIKE $1
+	username, profile_picture_url, id
+FROM users
+WHERE username LIKE $1
+AND id != $2
 AND NOT EXISTS (
 	SELECT
 		1
 	FROM user_conversations
-	WHERE (user1_id = $2 AND user2_id = u.id)
-	OR (user1_id = u.id AND user2_id = $2)
+	WHERE (user1_id = $2 AND user2_id = users.id)
+	OR (user1_id = users.id AND user2_id = $2)
 )
 AND NOT EXISTS (
 	SELECT
 		1
 	FROM user_conversation_blocks
 	WHERE blocked_user = $2
-	AND blocked_by_user = u.id
+	AND blocked_by_user = users.id
+)
+AND NOT EXISTS (
+	SELECT
+		1
+	FROM user_requests
+	WHERE sender_id = $2
 )
 "#,
 			search,
@@ -220,8 +226,10 @@ AND NOT EXISTS (
 		)
 		.fetch_all(&self.0)
 		.await
-		// TODO: trace
-		.map_err(|_| error::Error::InternalError)
+		.map_err(|why| {
+			tracing::error!(%why, "friend-query-failed");
+			error::Error::InternalError
+		})
 	}
 }
 

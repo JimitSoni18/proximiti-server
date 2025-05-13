@@ -30,7 +30,6 @@ CREATE TABLE user_conversations (
 CREATE TABLE user_requests (
 	sender_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 	receiver_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-	rejected BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE user_conversation_blocks (
