@@ -94,7 +94,7 @@ CREATE TABLE user_reaction_packs (
 	user_id UUID REFERENCES users(id) ON DELETE CASCADE,
 	reaction_pack_id UUID REFERENCES reaction_packs(id) ON DELETE CASCADE,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
 	PRIMARY KEY (user_id, reaction_pack_id)
 );
