@@ -32,7 +32,7 @@ CREATE TABLE user_profile (
 	status VARCHAR(128),
 	status_until TIMESTAMP,
 	bio TEXT,
-	-- TODO: use redis for last seen
+	-- TODO: use redis for last seen / online
 	last_seen TIMESTAMP NOT NULL DEFAULT NOW(),
 	online BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -71,7 +71,7 @@ CREATE TABLE reaction_packs (
 );
 
 CREATE TABLE reactions (
-	id UUID GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 	created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
 	name VARCHAR(255) NOT NULL,
 	reaction_url VARCHAR(1024) NOT NULL,
@@ -82,10 +82,10 @@ CREATE TABLE reactions (
 );
 
 CREATE TABLE pack_reactions (
-	pack_id UUID PRIMARY KEY REFERENCES reaction_packs(id) ON DELETE CASCADE,
-	reaction_id UUID PRIMARY KEY REFERENCES reactions(id) ON DELETE CASCADE,
+	pack_id UUID NOT NULL REFERENCES reaction_packs(id) ON DELETE CASCADE,
+	reaction_id UUID NOT NULL REFERENCES reactions(id) ON DELETE CASCADE,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
 	PRIMARY KEY (pack_id, reaction_id)
 );
@@ -116,6 +116,8 @@ CREATE TABLE conversation_members (
 	user_note TEXT,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+	INDEX idx_user_on_conversation (user_id),
 	PRIMARY KEY (conversation_id, user_id)
 );
 
@@ -123,6 +125,7 @@ CREATE TABLE conversation_members (
 
 CREATE TYPE message_status AS ENUM ('Sent', 'Delivered', 'Read', 'Failed');
 
+-- TODO: message seen by
 -- TODO: starred messages
 CREATE TABLE user_messages (
 	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
