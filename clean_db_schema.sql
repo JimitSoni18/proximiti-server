@@ -125,6 +125,8 @@ CREATE TABLE conversation_members (
 
 CREATE TYPE message_status AS ENUM ('Sent', 'Delivered', 'Read', 'Failed');
 
+CREATE TYPE message_content_type AS ENUM ('Plain', 'Markdown', 'Typst', 'Latex', 'Html');
+
 -- TODO: message seen by
 -- TODO: starred messages
 CREATE TABLE user_messages (
@@ -134,7 +136,7 @@ CREATE TABLE user_messages (
 	conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
 	sender_id UUID REFERENCES users(id) ON DELETE SET NULL,
 	content TEXT,
-	is_markdown BOOLEAN NOT NULL,
+	content_type message_content_type DEFAULT 'Plain',
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	status MESSAGE_STATUS NOT NULL DEFAULT 'Sent',
@@ -353,14 +355,18 @@ CREATE TABLE channels (
 	type CHANNEL_TYPE NOT NULL DEFAULT 'Text',
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+	-- for fk in forum_channel_settings
+	CONSTRAINT uc_id_channel_type UNIQUE (type, id),
+
 	CONSTRAINT uc_channel_name_per_guild UNIQUE (
 		guild_id,
 		name
 	)
 );
 
-CREATE TABLE post_channel_settings (
-	channel_id UUID PRIMARY KEY REFERENCES channels(id) ON DELETE CASCADE,
+CREATE TABLE forum_channel_settings (
+	channel_id UUID PRIMARY KEY,
 	guidelines TEXT,
 	-- TODO: convert these in bitflag
 	-- TODO: default reaction?
@@ -371,11 +377,13 @@ CREATE TABLE post_channel_settings (
 
 	auto_delete_at TIMESTAMP DEFAULT NOW() + '3 days'::INTERVAL,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+	FOREIGN KEY ('Forum', channel_id) REFERENCES channes(type, id) ON DELETE CASCADE
 );
 
-CREATE TABLE post_channel_tags (
-	channel_id UUID PRIMARY KEY REFERENCES post_channel_settings(channel_id) ON DELETE CASCADE,
+CREATE TABLE forum_channel_tags (
+	channel_id UUID PRIMARY KEY REFERENCES forum_channel_settings(channel_id) ON DELETE CASCADE,
 	name VARCHAR(32) NOT NULL,
 	mods_only_apply BOOLEAN DEFAULT FALSE,
 
@@ -399,9 +407,16 @@ CREATE TABLE posts (
 -- TODO: post guildelines
 -- TODO: post reactions
 
-CREATE TABLE guild_post_tags ();
+-- what was this for?
+-- CREATE TABLE guild_post_tags ();
 
-CREATE TABLE post_followers ();
+CREATE TABLE post_followers (
+	user_id UUID NOT NULL,
+	guild_id UUID NOT NULL,
+	channel_id UUID NOT NULL,
+
+	FOREIGN KEY ()
+);
 
 CREATE TYPE message_type AS ENUM ('TextOrMedia', 'Poll');
 
@@ -411,7 +426,7 @@ CREATE TABLE channel_messages (
 	parent_thread_id UUID,
 	post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
 	sent_by UUID REFERENCES users(id) ON DELETE SET NULL,
-	is_markdown BOOLEAN NOT NULL,
+	content_type message_content_type DEFAULT 'Plain',
 	content TEXT,
 	type MESSAGE_TYPE NOT NULL DEFAULT 'TextOrMedia',
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -574,3 +589,9 @@ CREATE TABLE sticker_set ();
 -- TODO: guidelines
 -- TODO: guild and channel invites, webhooks, permissions
 -- TODO: channel settings
+-- TODO: custom themes like revolt
+-- TODO: bots? ask help from revolt
+-- TODO: webhooks
+-- TODO: nosql!
+-- TODO: latex,typst
+-- TODO: @mention
