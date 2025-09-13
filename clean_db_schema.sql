@@ -8,10 +8,11 @@
 
 CREATE TABLE users (
 	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-	username VARCHAR(128) UNIQUE NOT NULL,
+	username VARCHAR(128) NOT NULL UNIQUE,
 	password VARCHAR(128) NOT NULL,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+	-- TODO: encryption key?
 );
 
 CREATE TYPE user_availability AS ENUM ('Online', 'Idle', 'DND', 'Invisible');
@@ -19,6 +20,7 @@ CREATE TYPE user_availability AS ENUM ('Online', 'Idle', 'DND', 'Invisible');
 CREATE TABLE public_images (
 	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 	url VARCHAR(1024) NOT NULL UNIQUE,
+	size_bytes BIGINT NOT NULL,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -29,6 +31,7 @@ CREATE TABLE user_profile (
 	avatar_url UUID REFERENCES public_images(id) ON DELETE SET NULL,
 	banner_url UUID REFERENCES public_images(id) ON DELETE SET NULL,
 	availablility user_availability DEFAULT 'Online',
+	-- TODO put status in cache?
 	status VARCHAR(128),
 	status_until TIMESTAMP,
 	bio TEXT,
@@ -52,7 +55,9 @@ CREATE TABLE user_connections (
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
 	CONSTRAINT uc_order_user_pair CHECK (user1_id < user2_id),
-	PRIMARY KEY (user1_id, user2_id)
+	PRIMARY KEY (user1_id, user2_id),
+	-- constraint for index
+	UNIQUE (user2_id, user1_id)
 );
 
 --- USERS:END ---
@@ -118,7 +123,7 @@ CREATE TABLE conversation_members (
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
 	INDEX idx_user_on_conversation (user_id),
-	PRIMARY KEY (conversation_id, user_id)
+	PRIMARY KEY (user_id, conversation_id)
 );
 
 --- CONVERSATIONS:END ---
@@ -132,7 +137,7 @@ CREATE TYPE message_content_type AS ENUM ('Plain', 'Markdown', 'Typst', 'Latex',
 CREATE TABLE user_messages (
 	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 	reply_to_id UUID REFERENCES user_messages(id) ON DELETE SET NULL,
-	has_reply_to_id BOOLEAN NOT NULL DEFAULT FALSE,
+	is_reply BOOLEAN NOT NULL DEFAULT FALSE,
 	conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
 	sender_id UUID REFERENCES users(id) ON DELETE SET NULL,
 	content TEXT,
@@ -141,9 +146,9 @@ CREATE TABLE user_messages (
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	status MESSAGE_STATUS NOT NULL DEFAULT 'Sent',
 	-- for fk in user reactions
-	CONSTRAINT uc_id_sender UNIQUE (id, sender_id),
+	UNIQUE (id, sender_id),
 	CONSTRAINT msg_not_own_reply CHECK (id != reply_to_id),
-	FOREIGN KEY (conversation_id, sender_id) REFERENCES conversation_members(conversation_id, user_id)
+	FOREIGN KEY (sender_id, conversation_id) REFERENCES conversation_members(user_id, conversation_id)
 );
 
 CREATE TABLE attachments (
@@ -173,7 +178,7 @@ CREATE TABLE pinned_messages (
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
 	FOREIGN KEY (conversation_id, message_id) REFERENCES user_messages(conversation_id, id) ON DELETE CASCADE,
-	FOREIGN KEY (conversation_id, pinned_by_id) REFERENCES conversation_members(conversation_id, user_id),
+	FOREIGN KEY (pinned_by_id, conversation_id) REFERENCES conversation_members(user_id, conversation_id),
 	PRIMARY KEY (conversation_id, message_id)
 );
 
@@ -250,8 +255,8 @@ CREATE TABLE guild_roles (
 	priority SMALLINT NOT NULL,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-	CONSTRAINT uc_guild__role_name_unique UNIQUE (guild_id, role_name),
-	CONSTRAINT uc_id_guild_id_composite_unique_for_fk UNIQUE (guild_id, id)
+	UNIQUE (guild_id, role_name),
+	UNIQUE (guild_id, id)
 );
 
 CREATE TABLE user_roles_on_guild (
@@ -342,32 +347,36 @@ CREATE TABLE channel_categories (
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
-	CONSTRAINT uc_channel_category_name_for_guild UNIQUE (guild_id, name)
+	UNIQUE (guild_id, name)
 );
 
 CREATE TYPE channel_type as ENUM ('Text', 'Audio', 'Video', 'Forum');
 
 -- TODO: private flag in channels for some roles
-CREATE TABLE channels (
+CREATE TABLE text_channels (
 	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
 	name VARCHAR(128) NOT NULL,
+	topic VARCHAR(1024),
+	auto_delete_at TIMESTAMP DEFAULT NOW() + '3 days'::INTERVAL,
 	guild_id UUID NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
-	type CHANNEL_TYPE NOT NULL DEFAULT 'Text',
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
-	-- for fk in forum_channel_settings
-	CONSTRAINT uc_id_channel_type UNIQUE (type, id),
-
-	CONSTRAINT uc_channel_name_per_guild UNIQUE (
-		guild_id,
-		name
-	)
+	UNIQUE (guild_id, name)
 );
 
-CREATE TABLE forum_channel_settings (
-	channel_id UUID PRIMARY KEY,
+CREATE TABLE audio_channels (
+	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+	-- TODO: quality
+	-- TODO bitrate
+	-- TODO: max quality
+);
+
+CREATE TABLE forum_channels (
+	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+	name VARCHAR(128) NOT NULL,
 	guidelines TEXT,
+
 	-- TODO: convert these in bitflag
 	-- TODO: default reaction?
 	require_tags BOOLEAN DEFAULT FALSE,
@@ -376,31 +385,28 @@ CREATE TABLE forum_channel_settings (
 	default_tag_match_some BOOLEAN DEFAULT TRUE,
 
 	auto_delete_at TIMESTAMP DEFAULT NOW() + '3 days'::INTERVAL,
-	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
-	FOREIGN KEY ('Forum', channel_id) REFERENCES channes(type, id) ON DELETE CASCADE
+	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE forum_channel_tags (
-	channel_id UUID PRIMARY KEY REFERENCES forum_channel_settings(channel_id) ON DELETE CASCADE,
+	channel_id UUID PRIMARY KEY REFERENCES forum_channels(channel_id) ON DELETE CASCADE,
 	name VARCHAR(32) NOT NULL,
 	mods_only_apply BOOLEAN DEFAULT FALSE,
 
-	CONSTRAINT uc_channel_tags UNIQUE (channel_id, name)
+	-- TODO: no index needed here
+	UNIQUE (channel_id, name)
 );
 
 CREATE TABLE posts (
 	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-	guild_id UUID NOT NULL,
-	channel_id UUID NOT NULL,
+	channel_id UUID NOT NULL REFERENCES text_channels(id) ON DELETE CASCADE,
 	title VARCHAR(128) NOT NULL,
 	content TEXT NOT NULL,
 	has_tags BOOLEAN NOT NULL DEFAULT FALSE,
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-
-	FOREIGN KEY (guild_id, channel_id) REFERENCES channels(guild_id, id) ON DELETE CASCADE
+	updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- TODO: post notifications, etc?
@@ -420,9 +426,10 @@ CREATE TABLE post_followers (
 
 CREATE TYPE message_type AS ENUM ('TextOrMedia', 'Poll');
 
+-- TODO: rename to guild_messages, as these are not just channel_messages anymore
 CREATE TABLE channel_messages (
 	id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-	channel_id UUID REFERENCES channels(id) ON DELETE CASCADE,
+	channel_id UUID REFERENCES text_channels(id) ON DELETE CASCADE,
 	parent_thread_id UUID,
 	post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
 	sent_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -444,7 +451,7 @@ CREATE TABLE channel_messages (
 	-- CONSTRAINT uc_channel_id_id UNIQUE (channel_id, id),
 	CONSTRAINT message_null_for_poll CHECK ((type = 'Poll' AND content IS NULL) OR type != 'Poll'),
 	-- unique constraint for threads, to constraint that there is no thread emerging from a post message
-	CONSTRAINT uc_id_post_id UNIQUE (id, post_id),
+	UNIQUE (id, post_id),
 	-- TODO index on (channel_id, id) for FK on polls and other tables
 	INDEX idx_channel_messages (channel_id, post_id, thread_id, created_at)
 );
@@ -514,7 +521,7 @@ CREATE TABLE poll_options (
 	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
-	CONSTRAINT uc_option_content_on_poll UNIQUE (poll_id, content),
+	UNIQUE (poll_id, content),
 	PRIMARY KEY (poll_id, id) -- for fk constraint on poll_votes
 );
 
@@ -526,7 +533,7 @@ CREATE TABLE poll_votes (
 	updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 
 	FOREIGN KEY (poll_message_id, option_id) REFERENCES poll_options(poll_id, id) ON DELETE CASCADE,
-	CONSTRAINT uc_poll_vote_by_user UNIQUE (poll_message_id, voter_id, option_id)
+	UNIQUE (poll_message_id, voter_id, option_id)
 );
 
 CREATE UNIQUE INDEX ux_single_vote
@@ -544,16 +551,6 @@ WHERE NOT EXISTS (
 -- TODO: stickers
 
 -- TODO: questions, single choice, multiple choice, dynamic answer matching (all valid selected, any valid selected, etc.)
-
--- FIX: better to have reply parent id in the same messages table
--- to avoid an extra join at the cost of extra storage
-CREATE TABLE channel_replies (
-	channel_id UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
-	reply_to_id UUID NOT NULL REFERENCES channel_messages(id) ON DELETE SET NULL,
-	message_id UUID NOT NULL UNIQUE REFERENCES channel_messages(id) ON DELETE CASCADE,
-	created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-	updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
 
 CREATE TABLE guild_reactions (
 	guild_id UUID NOT NULL REFERENCES guilds(id) ON DELETE CASCADE,
@@ -595,3 +592,5 @@ CREATE TABLE sticker_set ();
 -- TODO: nosql!
 -- TODO: latex,typst
 -- TODO: @mention
+-- TODO: invites
+-- TODO: forward messages
